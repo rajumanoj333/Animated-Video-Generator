@@ -1,0 +1,163 @@
+import os
+import tempfile
+import streamlit as st
+import requests
+from urllib.parse import urlparse
+from pathlib import Path
+from dotenv import load_dotenv
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Load environment variables
+load_dotenv()
+
+# Set page config
+st.set_page_config(page_title="Animated Video Generator", layout="centered")
+st.title("Animated Video Generator")
+
+# Initialize session state for video path
+if 'video_path' not in st.session_state:
+    st.session_state.video_path = None
+
+# Clean up old video files
+def cleanup():
+    try:
+        # Clean up video path if it's a local file
+        if st.session_state.get('video_path') and os.path.exists(st.session_state.video_path):
+            os.remove(st.session_state.video_path)
+        
+        # Clean up local video path if it exists
+        if st.session_state.get('local_video_path') and os.path.exists(st.session_state.local_video_path):
+            os.remove(st.session_state.local_video_path)
+            
+        # Clear session state
+        st.session_state.video_path = None
+        st.session_state.local_video_path = None
+        
+    except Exception as e:
+        logger.warning(f"Warning: Could not clean up temporary files: {e}")
+        st.warning(f"Warning: Could not clean up temporary files: {e}")
+
+# Get API URL from environment variable or use default
+BACKEND_URL = os.getenv('BACKEND_URL', 'http://localhost:8000')
+API_URL = f"{BACKEND_URL.rstrip('/')}/render"
+
+with st.sidebar:
+    st.markdown("### 💡 Sample Prompts")
+    st.code("Animate a circle growing and shrinking", language="markdown")
+    st.code("Show the sine wave animation", language="markdown")
+    st.code("Display the Pythagorean theorem visually", language="markdown")
+
+# Display video if it exists
+if st.session_state.video_path:
+    if st.session_state.video_path.startswith('http'):
+        # Handle GCS URL
+        try:
+            # Create a temporary file
+            temp_dir = Path(tempfile.gettempdir()) / 'manim_videos'
+            temp_dir.mkdir(exist_ok=True, parents=True)
+            
+            # Extract filename from URL
+            parsed_url = urlparse(st.session_state.video_path)
+            filename = os.path.basename(parsed_url.path)
+            local_path = temp_dir / filename
+            
+            # Download the video
+            response = requests.get(st.session_state.video_path, stream=True)
+            response.raise_for_status()
+            
+            with open(local_path, 'wb') as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    f.write(chunk)
+            
+            st.session_state.local_video_path = str(local_path)
+            
+            # Display the video
+            st.video(str(local_path))
+            
+            # Add download button
+            with open(local_path, "rb") as f:
+                st.download_button(
+                    "📥 Download Video",
+                    f,
+                    file_name=filename,
+                    mime="video/mp4"
+                )
+                
+        except Exception as e:
+            logger.error(f"Error loading video from URL: {e}")
+            st.error(f"Error loading video: {str(e)}")
+    elif os.path.exists(st.session_state.video_path):
+        # Handle local file path
+        st.video(st.session_state.video_path)
+        with open(st.session_state.video_path, "rb") as f:
+            st.download_button(
+                "📥 Download Video",
+                f,
+                file_name="output.mp4",
+                mime="video/mp4",
+                on_click=cleanup
+            )
+    
+    if st.button("Clear Video"):
+        cleanup()
+        st.rerun()
+
+# Input form
+with st.form("video_form"):
+    prompt = st.text_area("Enter your animation prompt:", height=100)
+    submit_button = st.form_submit_button("Generate Video")
+
+# Handle form submission
+if submit_button and prompt:
+    with st.spinner("Generating your animation..."):
+        try:
+            # Clean up any existing video
+            cleanup()
+            
+            # Make the API request
+            response = requests.post(
+                API_URL,
+                json={"prompt": prompt},
+                timeout=300  # 5 minute timeout
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                video_url = data.get("video_url")
+                
+                if video_url:
+                    st.success("Video generated successfully!")
+                    
+                    # Store the GCS URL in session state
+                    st.session_state.video_path = video_url
+                    
+                    # Force a rerun to display the video
+                    st.rerun()
+                else:
+                    st.error("No video URL returned from the server.")
+            else:
+                try:
+                    error_data = response.json()
+                    error_msg = error_data.get("detail", "Unknown error occurred")
+                    if "error" in error_data:
+                        error_msg = f"{error_msg}: {error_data['error']}"
+                except ValueError:
+                    error_msg = response.text or "Unknown error occurred"
+                
+                st.error(f"Error: {error_msg}")
+                logger.error(f"API Error: {error_msg}")
+                
+        except requests.exceptions.RequestException as e:
+            error_msg = str(e)
+            st.error(f"Failed to connect to the server: {error_msg}")
+            logger.error(f"Request Exception: {error_msg}")
+            cleanup()
+        except Exception as e:
+            error_msg = str(e)
+            st.error(f"An unexpected error occurred: {error_msg}")
+            logger.error(f"Unexpected Error: {error_msg}", exc_info=True)
+            cleanup()
