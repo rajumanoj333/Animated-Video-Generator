@@ -1,9 +1,7 @@
 import os
 import tempfile
 from datetime import datetime
-import sys
 from pathlib import Path
-from PIL import Image
 import streamlit as st
 import requests
 from urllib.parse import urlparse
@@ -22,12 +20,9 @@ st.set_page_config(page_title="Animated Video Generator", layout="centered")
 st.title("Animated Video Generator")
 
 # Session state initialization
-if 'video_path' not in st.session_state:
-    st.session_state.video_path = None
-if 'local_video_path' not in st.session_state:
-    st.session_state.local_video_path = None
-if 'video_history' not in st.session_state:
-    st.session_state.video_history = []
+st.session_state.setdefault('video_path', None)
+st.session_state.setdefault('local_video_path', None)
+st.session_state.setdefault('video_history', [])
 
 # Clean up old video files
 def cleanup(keep_history=True):
@@ -65,14 +60,14 @@ API_URL = f"{BACKEND_URL.rstrip('/')}/render"
 
 # Sidebar
 with st.sidebar:
-    st.markdown("### 💡 Sample Prompts")
-    st.code("Animate a circle growing and shrinking", language="markdown")
-    st.code("Show the sine wave animation", language="markdown")
-    st.code("Display the Pythagorean theorem visually", language="markdown")
+    st.markdown("### Sample Prompts")
+    st.code("Animate a circle growing and shrinking")
+    st.code("Show the sine wave animation")
+    st.code("Display the Pythagorean theorem visually")
 
     if st.session_state.video_history:
         st.markdown("---")
-        st.markdown("### 📚 Your Video History")
+        st.markdown("### Your Video History")
         for i, video in enumerate(reversed(st.session_state.video_history)):
             with st.expander(f"Video {i+1}: {video['timestamp']}"):
                 st.markdown(f"**Prompt:** {video['prompt']}")
@@ -83,13 +78,14 @@ with st.sidebar:
 # Show video if available
 if st.session_state.video_path:
     try:
-        if st.session_state.video_path.startswith('http'):
+        video_url = st.session_state.video_path
+        if video_url.startswith('http'):
             temp_dir = Path(tempfile.gettempdir()) / 'manim_videos'
             temp_dir.mkdir(parents=True, exist_ok=True)
-            filename = os.path.basename(urlparse(st.session_state.video_path).path)
+            filename = os.path.basename(urlparse(video_url).path)
             local_path = temp_dir / filename
 
-            response = requests.get(st.session_state.video_path, stream=True)
+            response = requests.get(video_url, stream=True)
             response.raise_for_status()
 
             with open(local_path, 'wb') as f:
@@ -98,14 +94,13 @@ if st.session_state.video_path:
 
             st.session_state.local_video_path = str(local_path)
             st.video(str(local_path))
-
             with open(local_path, "rb") as f:
-                st.download_button("📥 Download Video", f, file_name=filename, mime="video/mp4")
+                st.download_button("Download Video", f, file_name=filename, mime="video/mp4")
 
-        elif os.path.exists(st.session_state.video_path):
-            st.video(st.session_state.video_path)
-            with open(st.session_state.video_path, "rb") as f:
-                st.download_button("📥 Download Video", f, file_name="output.mp4", mime="video/mp4", on_click=cleanup)
+        elif os.path.exists(video_url):
+            st.video(video_url)
+            with open(video_url, "rb") as f:
+                st.download_button("Download Video", f, file_name="output.mp4", mime="video/mp4", on_click=cleanup)
 
     except Exception as e:
         logger.error(f"Failed to load video: {e}")
@@ -148,7 +143,7 @@ if submit_button and prompt:
 
                 if video_url:
                     progress_bar.progress(100)
-                    status_text.text("Video generated!")
+                    status_text.text("Video generated.")
                     st.success(f"Generated using model: {metadata.get('model', 'Unknown')}")
                     st.session_state.video_path = video_url
                     st.rerun()
@@ -162,8 +157,6 @@ if submit_button and prompt:
                     error_msg = response.text or "Unknown error"
                 st.error(f"Error: {error_msg}")
                 logger.error(f"API Error: {error_msg}")
-            progress_bar.empty()
-            status_text.empty()
 
         except requests.exceptions.RequestException as e:
             st.error(f"Failed to connect to server: {e}")
@@ -173,3 +166,6 @@ if submit_button and prompt:
             st.error(f"Unexpected error: {e}")
             logger.error(f"Unexpected error: {e}", exc_info=True)
             cleanup()
+
+        progress_bar.empty()
+        status_text.empty()
