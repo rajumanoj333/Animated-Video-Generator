@@ -1,6 +1,21 @@
 import os
 import tempfile
 from datetime import datetime
+import sys
+import importlib
+from PIL import Image
+
+# Monkey patch for missing imghdr module in Python 3.13
+class ImghdrMock:
+    def what(self, file, h=None):
+        try:
+            with Image.open(file) as img:
+                return img.format.lower() if img.format else None
+        except Exception:
+            return None
+
+sys.modules['imghdr'] = ImghdrMock()
+
 import streamlit as st
 import requests
 from urllib.parse import urlparse
