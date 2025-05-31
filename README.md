@@ -145,7 +145,7 @@ The Streamlit app will automatically open in your default web browser at `http:/
 | Variable | Description | Required | Default |
 |----------|-------------|----------|---------|
 | `OPENAI_API_KEY` | Your OpenAI API key | Yes | - |
-| `OPENAI_MODEL` | OpenAI model to use | No | `gpt-4` |
+| `OPENAI_MODEL` | OpenAI model to use | No | `gpt-4-mini` |
 | `PORT` | Backend server port | No | `8000` |
 | `ENVIRONMENT` | Application environment | No | `development` |
 | `GCP_PROJECT_ID` | Google Cloud Project ID | Yes | - |
