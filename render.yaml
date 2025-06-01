@@ -1,0 +1,12 @@
+# Exported from Render on 2025-06-01T10:45:27Z
+services:
+- type: web
+  name: Animated-Video-Generator
+  runtime: python
+  repo: https://github.com/rajumanoj333/Animated-Video-Generator
+  plan: free
+  region: oregon
+  buildCommand: pip install -r requirements.txt
+  startCommand: ' streamlit run streamlit_app.py'
+  autoDeployTrigger: commit
+version: "1"
