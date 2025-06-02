@@ -55,7 +55,7 @@ def cleanup(keep_history=True):
         st.warning("Could not clean up temporary files.")
 
 # API endpoint
-BACKEND_URL = os.getenv('BACKEND_URL', 'http://localhost:8000')
+BACKEND_URL = os.getenv('BACKEND_URL', 'http://0.0.0.0:10000 ')
 API_URL = f"{BACKEND_URL.rstrip('/')}/render"
 
 # Sidebar
