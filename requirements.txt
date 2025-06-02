@@ -9,3 +9,7 @@ google-auth>=2.22.0,<3.0.0
 streamlit==1.22.0
 requests==2.28.2
 python-dotenv==1.0.0
+manim==0.19.0
+cairo-lang>=0.1
+pango>=1.0
+ffmpeg-python>=0.2.0
