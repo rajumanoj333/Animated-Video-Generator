@@ -34,7 +34,6 @@ google-auth==2.40.2
 # Manim and its dependencies
 manim==0.17.3
 manimpango==0.4.3
-cairo-lang==0.1.2
 Pillow==9.5.0
 click==8.1.7
 colour==0.1.5
