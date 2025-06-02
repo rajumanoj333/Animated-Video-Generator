@@ -26,18 +26,18 @@ Before you begin, ensure you have the following:
   - A storage bucket created
   - Service account credentials with appropriate permissions
 
-# 🚀 Getting Started
+## 🚀 Getting Started
 
-## 1. Clone the Repository
+### 1. Clone the Repository
 
 ```bash
 git clone <repository-url>
 cd Animated-Video-Generator
 ```
 
-## 2. Set Up Python Environment
+### 2. Set Up Python Environment
 
-### Using Poetry (Recommended)
+#### Using Poetry (Recommended)
 
 ```bash
 # Install poetry if you haven't
@@ -49,17 +49,17 @@ poetry install
 poetry shell
 ```
 
-### Using pip
+#### Using pip
 ```bash
 # Create and activate virtual environment
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 # Install dependencies
-pip install -r requirements.txt
+pip install -r backend/requirements.txt
 ```
 
-## 3. Set Up Google Cloud Storage
+### 3. Set Up Google Cloud Storage
 
 1. **Create a GCP Project**
    - Go to [Google Cloud Console](https://console.cloud.google.com/)
@@ -80,7 +80,7 @@ pip install -r requirements.txt
    - Add the "Storage Object Admin" role
    - Create and download the JSON key file
 
-## 4. Configure Environment Variables
+### 4. Configure Environment Variables
 
 1. Copy the example environment file:
    ```bash
@@ -96,6 +96,7 @@ pip install -r requirements.txt
    # Server Configuration
    PORT=8000
    ENVIRONMENT=development
+   BACKEND_URL=http://localhost:8000  # Update in production
    
    # Google Cloud Storage
    GCP_PROJECT_ID=your_project_id
@@ -108,9 +109,9 @@ pip install -r requirements.txt
    STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
    ```
 
-## 5. Run the Application
+### 5. Run the Application Locally
 
-### Start the Backend Server
+#### Start the Backend Server
 
 ```bash
 # From the project root
@@ -119,7 +120,7 @@ uvicorn backend.main:app --reload --port 8000
 
 The API will be available at `http://localhost:8000`
 
-### Start the Streamlit Frontend
+#### Start the Streamlit Frontend
 
 Open a new terminal and run:
 
@@ -130,7 +131,7 @@ streamlit run backend/streamlit_app.py
 
 The Streamlit app will automatically open in your default web browser at `http://localhost:8501`
 
-## 6. Verify the Setup
+### 6. Verify the Setup
 
 1. Visit the Streamlit app at `http://localhost:8501`
 2. Enter a prompt (e.g., "Create an animation of a rotating square")
@@ -138,14 +139,94 @@ The Streamlit app will automatically open in your default web browser at `http:/
 4. The app will generate the animation using Manim and display it in the browser
 5. You can download the generated video using the download button
 
+## 🚀 Deployment on Render.com
+
+### 1. Create a Render Account
+
+Sign up for a free account at [Render.com](https://render.com/).
+
+### 2. Create a Web Service for the Backend
+
+1. From your Render dashboard, click **New** and select **Web Service**.
+2. Connect your GitHub repository.
+3. Configure the service:
+   - **Name**: `animated-video-generator-api`
+   - **Environment**: `Python 3`
+   - **Build Command**: `pip install -r backend/requirements.txt && pip install manim`
+   - **Start Command**: `cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT`
+   - **Plan**: Choose an appropriate plan (Free tier works for testing)
+
+4. Add the following environment variables:
+   - `OPENAI_API_KEY`
+   - `OPENAI_MODEL`
+   - `GCP_PROJECT_ID`
+   - `GCS_BUCKET_NAME`
+   - `ENVIRONMENT=production`
+
+5. For the Google Cloud credentials, you have two options:
+   
+   **Option 1**: Base64 encode your JSON credentials file and add it as an environment variable:
+   ```bash
+   # On Windows PowerShell
+   [System.Convert]::ToBase64String([System.IO.File]::ReadAllBytes("path\to\your\credentials.json"))
+   
+   # On Linux/Mac
+   base64 -w 0 path/to/your/credentials.json
+   ```
+   
+   Add this as an environment variable named `GOOGLE_CREDENTIALS_BASE64` and add the following to your build command:
+   ```bash
+   pip install -r backend/requirements.txt && pip install manim && echo $GOOGLE_CREDENTIALS_BASE64 | base64 -d > /opt/render/project/google-credentials.json && export GOOGLE_APPLICATION_CREDENTIALS=/opt/render/project/google-credentials.json
+   ```
+
+   **Option 2**: Use Render's secret files feature to upload your credentials JSON file directly.
+
+6. Click **Create Web Service**
+
+### 3. Create a Web Service for the Frontend
+
+1. From your Render dashboard, click **New** and select **Web Service** again.
+2. Connect your GitHub repository.
+3. Configure the service:
+   - **Name**: `animated-video-generator-ui`
+   - **Environment**: `Python 3`
+   - **Build Command**: `pip install -r backend/requirements.txt`
+   - **Start Command**: `cd backend && streamlit run streamlit_app.py --server.port $PORT --server.address 0.0.0.0`
+   - **Plan**: Choose an appropriate plan (Free tier works for testing)
+
+4. Add the following environment variables:
+   - `BACKEND_URL` (set to the URL of your backend service, e.g., `https://animated-video-generator-api.onrender.com`)
+   - `STREAMLIT_SERVER_HEADLESS=true`
+   - `STREAMLIT_BROWSER_GATHER_USAGE_STATS=false`
+
+5. Click **Create Web Service**
+
+### 4. Update CORS Settings
+
+If you encounter CORS issues, update your backend code in `main.py` to allow requests from your Streamlit frontend domain:
+
+```python
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["https://your-streamlit-app-url.onrender.com", "*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+```
+
+### 5. Access Your Deployed Application
+
+Once deployment is complete, you can access your application at the URL provided by Render for your frontend service.
+
 ## 🔧 Configuration
 
-## Environment Variables
+### Environment Variables
 
 | Variable | Description | Required | Default |
-|----------|-------------|----------|---------|
+|----------|-------------|----------|----------|
 | `OPENAI_API_KEY` | Your OpenAI API key | Yes | - |
-| `OPENAI_MODEL` | OpenAI model to use | No | `gpt-4-mini` |
+| `OPENAI_MODEL` | OpenAI model to use | No | `gpt-4` |
 | `PORT` | Backend server port | No | `8000` |
 | `ENVIRONMENT` | Application environment | No | `development` |
 | `GCP_PROJECT_ID` | Google Cloud Project ID | Yes | - |
@@ -178,124 +259,36 @@ The Streamlit app will automatically open in your default web browser at `http:/
    gsutil cors set cors.json gs://YOUR_BUCKET_NAME
    ```
 
-## Deployment
+### Local Development
 
-### Netlify
-
-1. Push your code to a Git repository
-2. Create a new site in Netlify and connect your repository
-3. Set up the following build settings:
-   - Build command: `cd frontend && npm run build`
-   - Publish directory: `frontend/build`
-   - Environment variables: Add all variables from your `.env` file
-
-
-# 🚀 Deployment
-
-## Local Development
+For local development, you can use `uvicorn` with `--reload` for automatic code reloading:
 
 ```bash
-# Start backend
 uvicorn backend.main:app --reload --port 8000
-
-# In a separate terminal, start frontend
-streamlit run backend/streamlit_app.py
 ```
 
-## Production Deployment
-
-### 1. Set Environment to Production
-
-```env
-ENVIRONMENT=production
-```
-
-### 2. Use a Production Server
-
-For the backend, use a production ASGI server like Uvicorn with Gunicorn:
-
-```bash
-pip install gunicorn
-
-gunicorn backend.main:app --workers 4 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000
-```
-
-### 3. Set Up a Reverse Proxy
-
-Use Nginx or Apache as a reverse proxy:
-
-```nginx
-# Nginx configuration example
-server {
-    listen 80;
-    server_name yourdomain.com;
-
-    location / {
-        proxy_pass http://localhost:8501;  # Streamlit
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
-    }
-
-    location /api/ {
-        proxy_pass http://localhost:8000/;  # FastAPI
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
-    }
-}
-```
-
-### 4. Set Up HTTPS
-
-Use Let's Encrypt for free SSL certificates:
-
-```bash
-# Install Certbot
-sudo apt install certbot python3-certbot-nginx
-
-# Get certificate
-sudo certbot --nginx -d yourdomain.com
-```
-
-## 🐳 Docker Deployment (Optional)
-
-1. Build the Docker image:
-   ```bash
-   docker build -t animated-video-generator .
-   ```
-
-2. Run the container:
-   ```bash
-   docker run -p 8501:8501 -p 8000:8000 --env-file .env animated-video-generator
-   ```
-
-# 🤝 Contributing
+## 🤝 Contributing
 
 Contributions are welcome! Please follow these steps:
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+1. Fork the repository.
+2. Create a new branch (`git checkout -b feature/your-feature-name`).
+3. Make your changes.
+4. Commit your changes (`git commit -m 'Add new feature'`).
+5. Push to the branch (`git push origin feature/your-feature-name`).
+6. Create a new Pull Request.
 
-# 📄 License
+## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-# 🙏 Acknowledgments
+## 🙏 Acknowledgments
 
-- [OpenAI](https://openai.com) for the powerful GPT models
-- [Manim Community](https://www.manim.community/) for the amazing animation engine
-- [FastAPI](https://fastapi.tiangolo.com/) for the high-performance backend
-- [Streamlit](https://streamlit.io/) for the easy-to-use frontend
-- All contributors who help improve this project
+- [OpenAI](https://openai.com/) for their powerful language models.
+- [Manim Community](https://www.manim.community/) for the amazing animation engine.
+- [FastAPI](https://fastapi.tiangolo.com/) for the fast and easy-to-use web framework.
+- [Streamlit](https://streamlit.io/) for the intuitive web application framework.
 
-# 📞 Support
+## 📞 Support
 
-For support, please open an issue in the GitHub repository.
+If you have any questions or encounter issues, please open an issue on the GitHub repository.
